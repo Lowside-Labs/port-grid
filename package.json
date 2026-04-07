@@ -1,0 +1,17 @@
+{
+  "name": "port-home",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "bin": {
+    "port-home": "./server.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["ports", "dev", "dashboard"],
+  "author": "",
+  "license": "ISC",
+  "description": "Browser dashboard showing all your local dev server ports as live iframe tiles"
+}
