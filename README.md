@@ -17,8 +17,15 @@ Browser dashboard that shows all your local dev server ports as live iframe tile
 ## Usage
 
 ```bash
-node server.js        # starts on port 4000
-node server.js 8080   # custom port
+npx port-home         # run directly, no install
+npx port-home 8080    # custom port
+```
+
+Or install globally:
+
+```bash
+npm i -g port-home
+port-home
 ```
 
 Zero dependencies. Requires Node.js and macOS (`lsof`).

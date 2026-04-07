@@ -10,7 +10,8 @@
     "start": "node server.js",
     "dev": "node server.js"
   },
-  "keywords": ["ports", "dev", "dashboard"],
+  "files": ["server.js", "scanner.js"],
+  "keywords": ["ports", "dev", "dashboard", "localhost", "devtools"],
   "author": "",
   "license": "ISC",
   "description": "Browser dashboard showing all your local dev server ports as live iframe tiles"
