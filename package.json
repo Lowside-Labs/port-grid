@@ -1,10 +1,10 @@
 {
-  "name": "port-hub",
+  "name": "port-grid",
   "version": "1.0.0",
   "type": "module",
   "main": "server.js",
   "bin": {
-    "port-hub": "./server.js"
+    "port-grid": "./server.js"
   },
   "scripts": {
     "start": "node server.js",

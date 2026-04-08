@@ -15,7 +15,7 @@ const server = createServer(async (req, res) => {
     });
     const all = url.searchParams.get("all") === "true";
     let ports = await scanPorts({ all });
-    // Filter out port-hub itself
+    // Filter out port-grid itself
     ports = ports.filter((p) => p.port !== PORT);
     res.end(JSON.stringify(ports));
     return;
@@ -27,7 +27,7 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`\n  ⚡ port-hub running at http://localhost:${PORT}\n`);
+  console.log(`\n  ⚡ port-grid running at http://localhost:${PORT}\n`);
 
   // Auto-open browser
   import("child_process").then(({ exec }) => {
@@ -47,7 +47,7 @@ function getHTML() {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>port-hub</title>
+<title>port-grid</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -288,7 +288,7 @@ function getHTML() {
       <line x1="8" y1="21" x2="16" y2="21"/>
       <line x1="12" y1="17" x2="12" y2="21"/>
     </svg>
-    <h1>port-hub</h1>
+    <h1>port-grid</h1>
   </div>
   <div class="header-actions">
     <button class="btn" id="refreshBtn" title="Refresh">
@@ -348,13 +348,13 @@ const modal = $("#modal");
 
 // Theme
 function getPreferredTheme() {
-  const saved = localStorage.getItem("port-hub-theme");
+  const saved = localStorage.getItem("port-grid-theme");
   if (saved) return saved;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 function applyTheme(theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
-  localStorage.setItem("port-hub-theme", theme);
+  localStorage.setItem("port-grid-theme", theme);
   updateThemeIcon(theme);
 }
 function updateThemeIcon(theme) {
