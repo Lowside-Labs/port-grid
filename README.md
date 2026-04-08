@@ -1,4 +1,4 @@
-# port-home
+# port-hub
 
 Browser dashboard that shows all your local dev server ports as live iframe tiles.
 
@@ -17,15 +17,15 @@ Browser dashboard that shows all your local dev server ports as live iframe tile
 ## Usage
 
 ```bash
-npx port-home         # run directly, no install
-npx port-home 8080    # custom port
+npx port-hub         # run directly, no install
+npx port-hub 8080    # custom port
 ```
 
 Or install globally:
 
 ```bash
-npm i -g port-home
-port-home
+npm i -g port-hub
+port-hub
 ```
 
 Zero dependencies. Requires Node.js and macOS (`lsof`).

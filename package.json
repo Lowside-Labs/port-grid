@@ -1,10 +1,10 @@
 {
-  "name": "port-home",
+  "name": "port-hub",
   "version": "1.0.0",
   "type": "module",
   "main": "server.js",
   "bin": {
-    "port-home": "./server.js"
+    "port-hub": "./server.js"
   },
   "scripts": {
     "start": "node server.js",
