@@ -5,8 +5,10 @@ import { scanPorts } from "./scanner.js";
 
 const PORT = parseInt(process.argv[2] || process.env.PORT || "4000", 10);
 
+let activePort = PORT;
+
 const server = createServer(async (req, res) => {
-  const url = new URL(req.url, `http://localhost:${PORT}`);
+  const url = new URL(req.url, `http://localhost:${activePort}`);
 
   if (url.pathname === "/api/ports") {
     res.writeHead(200, {
@@ -16,7 +18,7 @@ const server = createServer(async (req, res) => {
     const all = url.searchParams.get("all") === "true";
     let ports = await scanPorts({ all });
     // Filter out port-grid itself
-    ports = ports.filter((p) => p.port !== PORT);
+    ports = ports.filter((p) => p.port !== activePort);
     res.end(JSON.stringify(ports));
     return;
   }
@@ -44,20 +46,34 @@ const server = createServer(async (req, res) => {
   res.end(getHTML());
 });
 
-server.listen(PORT, () => {
-  console.log(`\n  ⚡ port-grid running at http://localhost:${PORT}\n`);
+function startServer(port) {
+  server.listen(port, () => {
+    activePort = port;
+    console.log(`\n  ⚡ port-grid running at http://localhost:${port}\n`);
 
-  // Auto-open browser
-  import("child_process").then(({ exec }) => {
-    const cmd =
-      process.platform === "darwin"
-        ? "open"
-        : process.platform === "win32"
-          ? "start"
-          : "xdg-open";
-    exec(`${cmd} http://localhost:${PORT}`);
+    // Auto-open browser
+    import("child_process").then(({ exec }) => {
+      const cmd =
+        process.platform === "darwin"
+          ? "open"
+          : process.platform === "win32"
+            ? "start"
+            : "xdg-open";
+      exec(`${cmd} http://localhost:${port}`);
+    });
   });
-});
+
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      server.close();
+      startServer(port + 1);
+    } else {
+      throw err;
+    }
+  });
+}
+
+startServer(PORT);
 
 function getHTML() {
   return /*html*/ `<!DOCTYPE html>
