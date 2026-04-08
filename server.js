@@ -21,6 +21,24 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/kill" && req.method === "POST") {
+    const pid = url.searchParams.get("pid");
+    if (!pid || isNaN(pid)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid PID" }));
+      return;
+    }
+    try {
+      process.kill(parseInt(pid, 10), "SIGTERM");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, pid }));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   // Serve the SPA
   res.writeHead(200, { "Content-Type": "text/html" });
   res.end(getHTML());
@@ -100,7 +118,7 @@ function getHTML() {
   }
   .logo { display: flex; align-items: center; gap: 10px; }
   .logo svg { width: 28px; height: 28px; }
-  .logo h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+  .logo h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; position: relative; top: -2px; }
   .header-actions { display: flex; align-items: center; gap: 8px; }
 
   /* Buttons */
@@ -140,6 +158,7 @@ function getHTML() {
     overflow: hidden;
     transition: box-shadow 0.2s, border-color 0.2s;
     display: flex; flex-direction: column;
+    cursor: pointer;
   }
   .card:hover { box-shadow: var(--shadow-hover); border-color: var(--border-hover); }
 
@@ -182,15 +201,16 @@ function getHTML() {
   }
   .status-dot.docker { background: var(--dot-docker); }
 
-  .card-actions { display: flex; gap: 4px; }
+  .card-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
   .card-btn {
     width: 28px; height: 28px; border-radius: 6px; border: none;
     background: transparent; color: var(--text-tertiary);
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    transition: all 0.15s;
+    cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    transition: all 0.15s; padding: 0; line-height: 1;
   }
   .card-btn:hover { background: var(--accent-subtle); color: var(--text); }
-  .card-btn svg { width: 14px; height: 14px; }
+  .card-btn.kill-btn:hover { background: rgba(239,68,68,0.1); color: #ef4444; }
+  .card-btn svg { width: 14px; height: 14px; display: block; }
 
   /* Iframe preview */
   .card-preview {
@@ -246,30 +266,6 @@ function getHTML() {
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Expanded view modal */
-  .modal-overlay {
-    position: fixed; inset: 0; z-index: 200;
-    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
-    display: flex; align-items: center; justify-content: center;
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.2s;
-  }
-  .modal-overlay.open { opacity: 1; pointer-events: all; }
-  .modal {
-    width: 92vw; height: 88vh;
-    background: var(--bg-card); border-radius: var(--radius);
-    border: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    overflow: hidden;
-    transform: scale(0.96); transition: transform 0.2s;
-  }
-  .modal-overlay.open .modal { transform: scale(1); }
-  .modal-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 16px; border-bottom: 1px solid var(--border);
-  }
-  .modal-header .card-title-group { gap: 12px; }
-  .modal iframe { flex: 1; border: none; width: 100%; }
 
   /* Responsive */
   @media (max-width: 520px) {
@@ -316,35 +312,17 @@ function getHTML() {
 </div>
 
 <div class="grid-container">
-  <div class="grid" id="grid"></div>
-</div>
-
-<!-- Expand modal -->
-<div class="modal-overlay" id="modal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="card-title-group">
-        <span class="port-badge" id="modalPort"></span>
-        <span class="card-title" id="modalTitle"></span>
-      </div>
-      <div style="display:flex;gap:4px;">
-        <a class="btn" id="modalOpen" href="#" target="_blank" style="text-decoration:none;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          Open
-        </a>
-        <button class="btn" id="modalClose">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
+  <div class="grid" id="grid">
+    <div class="empty-state" id="initialLoading" style="grid-column: 1/-1;">
+      <div class="spinner"></div>
+      <p>Scanning ports...</p>
     </div>
-    <iframe id="modalIframe" src="about:blank"></iframe>
   </div>
 </div>
 
 <script>
 const $ = (s) => document.querySelector(s);
 const grid = $("#grid");
-const modal = $("#modal");
 
 // Theme
 function getPreferredTheme() {
@@ -386,6 +364,8 @@ async function fetchPorts() {
 }
 
 function render(ports) {
+  const loading = $("#initialLoading");
+  if (loading) loading.remove();
   $("#totalCount").textContent = ports.length;
   $("#dockerCount").textContent = ports.filter((p) => p.isDocker).length;
 
@@ -450,17 +430,14 @@ function createCard(p) {
         <span class="framework-tag\${dockerClass}">\${esc(p.framework)}</span>
       </div>
       <div class="card-actions">
-        <button class="card-btn" title="Open in new tab" data-action="open">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </button>
-        <button class="card-btn" title="Expand preview" data-action="expand">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        <button class="card-btn kill-btn" title="Kill process" data-action="kill" data-pid="\${p.pid}" data-name="\${esc(p.projectName)}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
     </div>
     <div class="card-preview">
       <div class="loading"><div class="spinner"></div></div>
-      <div class="iframe-overlay" data-action="expand"></div>
+      <div class="iframe-overlay"></div>
     </div>
     <div class="card-footer">
       <span>PID \${p.pid}</span>
@@ -495,12 +472,15 @@ function createCard(p) {
   // Button handlers
   card.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-action]");
-    if (!btn) return;
-    if (btn.dataset.action === "open") {
-      window.open("http://localhost:" + p.port, "_blank");
-    } else if (btn.dataset.action === "expand") {
-      openModal(p);
+    if (btn) {
+      e.stopPropagation();
+      if (btn.dataset.action === "kill") {
+        killProcess(p.pid, p.projectName, card);
+      }
+      return;
     }
+    // Clicking anywhere else on the card opens in new tab
+    window.open("http://localhost:" + p.port, "_blank");
   });
 
   return card;
@@ -517,22 +497,22 @@ function updateCardMeta(card, p) {
   }
 }
 
-function openModal(p) {
-  $("#modalPort").textContent = ":" + p.port;
-  $("#modalTitle").textContent = p.projectName + " — " + p.framework;
-  $("#modalOpen").href = "http://localhost:" + p.port;
-  $("#modalIframe").src = "http://localhost:" + p.port;
-  modal.classList.add("open");
-}
 
-function closeModal() {
-  modal.classList.remove("open");
-  $("#modalIframe").src = "about:blank";
+async function killProcess(pid, name, card) {
+  try {
+    const res = await fetch(\`/api/kill?pid=\${pid}\`, { method: "POST" });
+    const data = await res.json();
+    if (data.ok) {
+      card.style.opacity = "0.4";
+      card.style.transition = "opacity 0.3s";
+      setTimeout(() => fetchPorts(), 1000);
+    } else {
+      alert("Failed to kill: " + (data.error || "unknown error"));
+    }
+  } catch (e) {
+    alert("Failed to kill process: " + e.message);
+  }
 }
-
-$("#modalClose").onclick = closeModal;
-modal.onclick = (e) => { if (e.target === modal) closeModal(); };
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
 function esc(s) {
   const d = document.createElement("div");
