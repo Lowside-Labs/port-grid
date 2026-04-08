@@ -7,7 +7,7 @@ const PORT = parseInt(process.argv[2] || process.env.PORT || "4000", 10);
 
 let activePort = PORT;
 
-const server = createServer(async (req, res) => {
+async function handler(req, res) {
   const url = new URL(req.url, `http://localhost:${activePort}`);
 
   if (url.pathname === "/api/ports") {
@@ -41,17 +41,33 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/shutdown" && req.method === "POST") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    setTimeout(() => process.exit(0), 100);
+    return;
+  }
+
   // Serve the SPA
   res.writeHead(200, { "Content-Type": "text/html" });
   res.end(getHTML());
-});
+}
 
 function startServer(port) {
+  const server = createServer(handler);
+
+  server.once("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      startServer(port + 1);
+    } else {
+      throw err;
+    }
+  });
+
   server.listen(port, () => {
     activePort = port;
     console.log(`\n  ⚡ port-grid running at http://localhost:${port}\n`);
 
-    // Auto-open browser
     import("child_process").then(({ exec }) => {
       const cmd =
         process.platform === "darwin"
@@ -61,15 +77,6 @@ function startServer(port) {
             : "xdg-open";
       exec(`${cmd} http://localhost:${port}`);
     });
-  });
-
-  server.on("error", (err) => {
-    if (err.code === "EADDRINUSE") {
-      server.close();
-      startServer(port + 1);
-    } else {
-      throw err;
-    }
   });
 }
 
@@ -315,6 +322,11 @@ function getHTML() {
         <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
       </svg>
     </button>
+    <button class="btn" id="shutdownBtn" title="Shutdown port-grid">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
   </div>
 </header>
 
@@ -515,18 +527,26 @@ function updateCardMeta(card, p) {
 
 
 async function killProcess(pid, name, card) {
+  // Immediate visual feedback — overlay on entire card
+  card.style.pointerEvents = "none";
+  card.style.position = "relative";
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);color:#8e8ea0;font-size:13px;border-radius:var(--radius);";
+  overlay.innerHTML = '<div class="spinner"></div>Shutting down...';
+  card.appendChild(overlay);
+
   try {
     const res = await fetch(\`/api/kill?pid=\${pid}\`, { method: "POST" });
     const data = await res.json();
     if (data.ok) {
-      card.style.opacity = "0.4";
-      card.style.transition = "opacity 0.3s";
-      setTimeout(() => fetchPorts(), 1000);
+      setTimeout(() => fetchPorts(), 1500);
     } else {
-      alert("Failed to kill: " + (data.error || "unknown error"));
+      card.style.pointerEvents = "";
+      overlay.remove();
     }
   } catch (e) {
-    alert("Failed to kill process: " + e.message);
+    card.style.pointerEvents = "";
+    overlay.remove();
   }
 }
 
@@ -547,6 +567,12 @@ $("#refreshBtn").onclick = async () => {
     $("#refreshBtn").classList.remove("active");
     refreshing = false;
   }, 300);
+};
+
+// Shutdown
+$("#shutdownBtn").onclick = async () => {
+  await fetch("/api/shutdown", { method: "POST" });
+  document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:var(--text-secondary);font-size:14px;">port-grid stopped</div>';
 };
 
 // Auto-refresh: only when tab is visible, refresh on focus
