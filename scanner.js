@@ -21,8 +21,9 @@ export async function scanPorts({ all = false } = {}) {
     const framework = detectFramework(processInfo, projectRoot);
     const docker = dockerPorts.get(entry.port) || null;
 
-    // Skip system ports unless --all
+    // Skip system ports and ephemeral ports unless --all
     if (!all && entry.port < 1024 && !docker) continue;
+    if (!all && entry.port >= 49152 && !docker) continue;
     // Skip common non-dev ports and desktop apps
     if (
       !all &&
@@ -345,6 +346,7 @@ function isDesktopApp(command, name) {
     "sourcetree", "iterm", "alacritty", "warp", "hyper",
     "waves", "arc", "raycast", "alfred", "cleanshot",
     "grammarly", "loom", "krisp", "around", "superhuman",
+    "github desktop",
   ];
   for (const app of desktopApps) {
     if (cmd.includes(app) || n.includes(app)) return true;
