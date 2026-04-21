@@ -336,7 +336,12 @@ function isSystemProcess(command, name) {
 function isDesktopApp(command, name) {
   const cmd = (command || "").toLowerCase();
   const n = (name || "").toLowerCase();
-  // Apps installed in /Applications are typically not dev servers
+  // Dev runtimes (node, python, etc.) are never desktop apps, even if their
+  // working directory or script path contains a name like "figma".
+  if (isDevRuntime(cmd) || isDevRuntime(n)) return false;
+  // Match against the executable name/path only (first token before a space),
+  // not the full argv — argv includes cwd/script paths that cause false positives.
+  const exe = cmd.split(/\s+/)[0] || "";
   const desktopApps = [
     "figma", "cursor", "visual studio code", "code helper",
     "spotify", "splice", "adobe", "elgato", "brave", "chrome",
@@ -349,10 +354,10 @@ function isDesktopApp(command, name) {
     "github desktop",
   ];
   for (const app of desktopApps) {
-    if (cmd.includes(app) || n.includes(app)) return true;
+    if (exe.includes(app) || n.includes(app)) return true;
   }
-  // Generic: if it's from /Applications and not a known runtime
-  if (cmd.includes("/applications/") && !isDevRuntime(cmd)) return true;
+  // Generic: if the executable lives in /Applications and isn't a known runtime
+  if (exe.includes("/applications/")) return true;
   return false;
 }
 
